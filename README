@@ -1,0 +1,5 @@
+This is a simple eskiv clone made in C using opengl.
+compile with gcc -o eskiv eskiv.c -lX11 -lGL -lGLU
+
+Basic opengl structure inherited from http://www.opengl.org/wiki/Programming_OpenGL_in_Linux:_GLX_and_Xlib
+
