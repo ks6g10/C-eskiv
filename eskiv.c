@@ -36,10 +36,10 @@ XWindowAttributes       gwa;
 XEvent                  xev;
 
 struct _block {
-	float pos[2];
-	struct _block * next;
-	unsigned int isHoriz:1;
-	int direction:2;
+     float pos[2];
+     struct _block * next;
+     unsigned int isVertical:1;
+     int direction:2;
 }typedef block;
 
 #define X 0
@@ -48,104 +48,139 @@ struct _block {
 #define YDIM 0.2
 const float DIM[2] ={YDIM,XDIM};
 void drawBlock(block * myblock);
+void drawPlayer(block * myblock);
 void DrawBlocks(block * myblock) {
-	static float posx;
-	static float posy;
-	block * current = myblock;
-	glClearColor(1.0, 1.0, 1.0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+     block * current = myblock;
+     glClearColor(1.0, 1.0, 1.0, 1.0);
+     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(-1., 1., -1., 1., 1., 20.);
+     glMatrixMode(GL_PROJECTION);
+     glLoadIdentity();
+     glOrtho(-1., 1., -1., 1., 1., 20.);
 
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	gluLookAt(0., 0., 10., 0., 0., 0., 0., 1., 0.);
+     glMatrixMode(GL_MODELVIEW);
+     glLoadIdentity();
+     gluLookAt(0., 0., 10., 0., 0., 0., 0., 1., 0.);
 //	printf("x %f y %f direction %d\n",myblock->pos[X],myblock->pos[Y],myblock->direction);
-	while(current != NULL)
-	{
-		drawBlock(current);
-		current = current->next;
-	}
+     drawPlayer(current);
+     current = current->next;
+     while(current != NULL)
+     {
+	  drawBlock(current);
+	  current = current->next;
+     }
 } 
-#define XPOS myblock->pos[X]+DIM[myblock->isHoriz]
-#define XNEG myblock->pos[X]-DIM[myblock->isHoriz]
-#define YNEG myblock->pos[Y]-DIM[myblock->isHoriz ^ 1]
-#define YPOS myblock->pos[Y]+DIM[myblock->isHoriz ^ 1]
+#define XPOS myblock->pos[X]+DIM[myblock->isVertical]
+#define XNEG myblock->pos[X]-DIM[myblock->isVertical]
+#define YNEG myblock->pos[Y]-DIM[myblock->isVertical ^ 1]
+#define YPOS myblock->pos[Y]+DIM[myblock->isVertical ^ 1]
 #define ABS(Z) (Z > 0 ? Z : -Z)
 
 void drawBlock(block * myblock)
 {
-	glBegin(GL_QUADS);
-	glColor3f(1., 0., 0.); 
-	
-	glVertex2f(XNEG,YNEG);
-	glVertex2f(XPOS,YNEG);
-	glVertex2f(XPOS,YPOS);
-	glVertex2f(XNEG,YPOS);
-
-	if(ABS(myblock->pos[myblock->isHoriz]+DIM[myblock->isHoriz]) > 1)
-		{
-			myblock->direction =-(myblock->direction);
-		printf("direction %d\n", myblock->direction);
+     glBegin(GL_QUADS);
+     glColor3f(1., 0., 0.); 
+     glVertex2f(XNEG,YNEG);
+     glVertex2f(XPOS,YNEG);
+     glVertex2f(XPOS,YPOS);
+     glVertex2f(XNEG,YPOS);
+     
+     if(ABS(myblock->pos[myblock->isVertical]+DIM[myblock->isVertical]) > 1)
+	  myblock->direction = -(myblock->direction);
+     myblock->pos[myblock->isVertical] += 0.01*myblock->direction;
+     glEnd();
+     
 }
-	myblock->pos[myblock->isHoriz] += 0.01*myblock->direction;
-	glEnd(); 
+
+void drawPlayer(block * player)
+{
+     glBegin(GL_QUADS);
+     glColor3f(1., 0., 0.); 
+     glVertex2f(player->pos[X]+DIM[Y],player->pos[Y]+DIM[Y]);
+     glVertex2f(player->pos[X]+DIM[Y],player->pos[Y]-DIM[Y]);
+     glVertex2f(player->pos[X]-DIM[Y],player->pos[Y]-DIM[Y]);
+     glVertex2f(player->pos[X]-DIM[Y],player->pos[Y]+DIM[Y]);
+     glEnd();
 }
  
 int main(int argc, char *argv[]) {
-	static block myblock2 = {{.1,.0},NULL,1,1};
-	static block myblock = {{.1,.0},&myblock2,0,1};
-	dpy = XOpenDisplay(NULL);
+     static block myblock2 = {{.3,.0},NULL,1,1};
+     static block myblock = {{.1,.0},&myblock2,0,1};
+     static block player = {{.0,.0},&myblock,1,1};
+     dpy = XOpenDisplay(NULL);
  
-	if(dpy == NULL) {
-		printf("\n\tcannot connect to X server\n\n");
-		exit(0); }
+     if(dpy == NULL) {
+	  printf("\n\tcannot connect to X server\n\n");
+	  exit(0); }
         
-	root = DefaultRootWindow(dpy);
+     root = DefaultRootWindow(dpy);
 	
-	vi = glXChooseVisual(dpy, 0, att);
+     vi = glXChooseVisual(dpy, 0, att);
 	
-	if(vi == NULL) {
-		printf("\n\tno appropriate visual found\n\n");
-		exit(0); } 
-	else {
-		printf("\n\tvisual %p selected\n", (void *)vi->visualid); 
-	}/* %p creates hexadecimal output like in glxinfo */
+     if(vi == NULL) {
+	  printf("\n\tno appropriate visual found\n\n");
+	  exit(0); } 
+     else {
+	  printf("\n\tvisual %p selected\n", (void *)vi->visualid); 
+     }/* %p creates hexadecimal output like in glxinfo */
 
 
-	cmap = XCreateColormap(dpy, root, vi->visual, AllocNone);
+     cmap = XCreateColormap(dpy, root, vi->visual, AllocNone);
 
-	swa.colormap = cmap;
-	swa.event_mask = ExposureMask | KeyPressMask;
+     swa.colormap = cmap;
+     swa.event_mask = ExposureMask | KeyPressMask;
  
-	win = XCreateWindow(dpy, root, 0, 0, 600, 600, 0, vi->depth, InputOutput, vi->visual, CWColormap | CWEventMask, &swa);
+     win = XCreateWindow(dpy, root, 0, 0, 600, 600, 0, vi->depth, InputOutput, vi->visual, CWColormap | CWEventMask, &swa);
 
-	XMapWindow(dpy, win);
-	XStoreName(dpy, win, "VERY SIMPLE APPLICATION");
+     XMapWindow(dpy, win);
+     XStoreName(dpy, win, "VERY SIMPLE APPLICATION");
  
-	glc = glXCreateContext(dpy, vi, NULL, GL_TRUE);
-	glXMakeCurrent(dpy, win, glc);
+     glc = glXCreateContext(dpy, vi, NULL, GL_TRUE);
+     glXMakeCurrent(dpy, win, glc);
  
-	glEnable(GL_DEPTH_TEST); 
+     glEnable(GL_DEPTH_TEST); 
  
-	while(1) {
-//		XNextEvent(dpy, &xev);
-		
-//		if(xev.type == Expose) {
-		XGetWindowAttributes(dpy, win, &gwa);
-		glViewport(0, 0, gwa.width, gwa.height);
-		DrawBlocks(&myblock); 
-		glXSwapBuffers(dpy, win);
-			//}
-                
-		/* else if(xev.type == KeyPress) { */
-		/* 	glXMakeCurrent(dpy, None, NULL); */
-		/* 	glXDestroyContext(dpy, glc); */
-		/* 	XDestroyWindow(dpy, win); */
-		/* 	XCloseDisplay(dpy); */
-		/* 	exit(0); } */
+     while(1) {
+
+	  XGetWindowAttributes(dpy, win, &gwa);
+	  glViewport(0, 0, gwa.width, gwa.height);
+	  DrawBlocks(&player); 
+	  glXSwapBuffers(dpy, win);
+
+	  // w 25 a 38 s 39 d 40
+	  if(XPending(dpy)) {/*If there is an event pending*/
+	       XNextEvent(dpy, &xev);
+	       if(xev.type == KeyPress || xev.type == KeyRelease) { 
+		    XKeyEvent xkey = xev.xkey;
+		    switch(xkey.keycode)
+		    {
+		    case 111:
+		    case 25: /*W*/
+			 player.pos[Y] += 0.1;
+			 break;
+
+		    case 113:
+		    case 38: /*A*/
+			 player.pos[X] -= 0.1;
+			 break;
+			 
+		    case 116:
+		    case 39: /*S*/
+			 player.pos[Y] -= 0.1;
+			 break;
+			 
+		    case 114:
+		    case 40: /*D*/
+			 player.pos[X] += 0.1;
+			 break;
+		    default:
+			 break;
+		    }
+		    printf("keycode %u\n",xkey.keycode);
+	       }
+	    
+	  }
+
 	} /* this closes while(1) { */
 } /* this is the } which closes int main(int argc, char *argv[]) { */
 
