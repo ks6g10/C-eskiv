@@ -36,11 +36,21 @@ XWindowAttributes       gwa;
 XEvent                  xev;
 
 struct _block {
-     float pos[2];
-     struct _block * next;
-     unsigned int isVertical:1;
-     int direction:2;
+	float pos[2];
+	struct _block * next;
+	unsigned int isVertical:1;
+	int direction:2;
 }typedef block;
+
+struct _playerstr {
+	float pos[2];
+	float size;
+	struct _block * next;
+	unsigned int movex:1;
+	unsigned int movey:1;
+	int dirx:2;
+	int diry:2;
+}typedef playerstr;
 
 #define X 0
 #define Y 1
@@ -48,9 +58,9 @@ struct _block {
 #define YDIM 0.2
 const float DIM[2] ={YDIM,XDIM};
 void drawBlock(block * myblock);
-void drawPlayer(block * myblock);
-void DrawBlocks(block * myblock) {
-     block * current = myblock;
+void drawPlayer(playerstr * myblock);
+void DrawBlocks(playerstr * myblock) {
+     block * current = myblock->next;
      glClearColor(1.0, 1.0, 1.0, 1.0);
      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -62,8 +72,7 @@ void DrawBlocks(block * myblock) {
      glLoadIdentity();
      gluLookAt(0., 0., 10., 0., 0., 0., 0., 1., 0.);
 //	printf("x %f y %f direction %d\n",myblock->pos[X],myblock->pos[Y],myblock->direction);
-     drawPlayer(current);
-     current = current->next;
+//     drawPlayer(myblock);
      while(current != NULL)
      {
 	  drawBlock(current);
@@ -92,23 +101,65 @@ void drawBlock(block * myblock)
      
 }
 
-void drawPlayer(block * player)
+void drawPlayer(playerstr * player)
 {
-     glBegin(GL_QUADS);
-     glColor3f(1., 0., 0.); 
-     glVertex2f(player->pos[X]+DIM[Y],player->pos[Y]+DIM[Y]);
-     glVertex2f(player->pos[X]+DIM[Y],player->pos[Y]-DIM[Y]);
-     glVertex2f(player->pos[X]-DIM[Y],player->pos[Y]-DIM[Y]);
-     glVertex2f(player->pos[X]-DIM[Y],player->pos[Y]+DIM[Y]);
-     glEnd();
+	player->pos[X] += 0.01*player->movex*player->dirx;
+	player->pos[Y] += 0.01*player->movey*player->diry;
+	glBegin(GL_QUADS);
+	glColor3f(1., 0., 0.); 
+	glVertex2f(player->pos[X]+DIM[Y],player->pos[Y]+DIM[Y]);
+	glVertex2f(player->pos[X]+DIM[Y],player->pos[Y]-DIM[Y]);
+	glVertex2f(player->pos[X]-DIM[Y],player->pos[Y]-DIM[Y]);
+	glVertex2f(player->pos[X]-DIM[Y],player->pos[Y]+DIM[Y]);
+	glEnd();
+}
+
+void handle_keys(playerstr * player)
+{
+
+	// w 25 a 38 s 39 d 40
+	if(XPending(dpy)) {/*If there is an event pending*/
+		int pressbool = (xev.type == KeyPress);
+		XNextEvent(dpy, &xev);
+		if(pressbool || xev.type == KeyRelease) { 
+			XKeyEvent xkey = xev.xkey;
+			switch(xkey.keycode)
+			{
+			case 111:
+			case 25: /*W*/
+				player->movey = pressbool;
+				player->diry = 1;
+				break;
+			case 113:
+			case 38: /*A*/
+				player->movex = pressbool;
+				player->dirx = 1;
+				break;
+				
+			case 116:
+			case 39: /*S*/
+				player->movey = pressbool;
+				player->diry = -1;
+				break;
+				
+			case 114:
+			case 40: /*D*/
+				  player->movex = pressbool;
+				  player->dirx = -1;				  
+				  break;
+		    default:
+			 break;
+		    }
+	       }
+	    
+	  }
 }
  
 int main(int argc, char *argv[]) {
      static block myblock2 = {{.3,.0},NULL,1,1};
      static block myblock = {{.1,.0},&myblock2,0,1};
-     static block player = {{.0,.0},&myblock,1,1};
+     static playerstr player;// = {{.0,.0},.0,&myblock,0,0,0,0};
      dpy = XOpenDisplay(NULL);
- 
      if(dpy == NULL) {
 	  printf("\n\tcannot connect to X server\n\n");
 	  exit(0); }
@@ -139,48 +190,15 @@ int main(int argc, char *argv[]) {
      glXMakeCurrent(dpy, win, glc);
  
      glEnable(GL_DEPTH_TEST); 
- 
+     
+
      while(1) {
 
-	  XGetWindowAttributes(dpy, win, &gwa);
-	  glViewport(0, 0, gwa.width, gwa.height);
-	  DrawBlocks(&player); 
-	  glXSwapBuffers(dpy, win);
-
-	  // w 25 a 38 s 39 d 40
-	  if(XPending(dpy)) {/*If there is an event pending*/
-	       XNextEvent(dpy, &xev);
-	       if(xev.type == KeyPress || xev.type == KeyRelease) { 
-		    XKeyEvent xkey = xev.xkey;
-		    switch(xkey.keycode)
-		    {
-		    case 111:
-		    case 25: /*W*/
-			 player.pos[Y] += 0.1;
-			 break;
-
-		    case 113:
-		    case 38: /*A*/
-			 player.pos[X] -= 0.1;
-			 break;
-			 
-		    case 116:
-		    case 39: /*S*/
-			 player.pos[Y] -= 0.1;
-			 break;
-			 
-		    case 114:
-		    case 40: /*D*/
-			 player.pos[X] += 0.1;
-			 break;
-		    default:
-			 break;
-		    }
-		    printf("keycode %u\n",xkey.keycode);
-	       }
-	    
-	  }
-
+	     XGetWindowAttributes(dpy, win, &gwa);
+	     glViewport(0, 0, gwa.width, gwa.height);
+	     DrawBlocks(&player); 
+	     glXSwapBuffers(dpy, win);
+	     handle_keys(&player);
 	} /* this closes while(1) { */
 } /* this is the } which closes int main(int argc, char *argv[]) { */
 
