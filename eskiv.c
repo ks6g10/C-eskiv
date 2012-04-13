@@ -59,8 +59,8 @@ struct _playerstr {
 const float DIM[2] ={YDIM,XDIM};
 void drawBlock(block * myblock);
 void drawPlayer(playerstr * myblock);
-void DrawBlocks(playerstr * myblock) {
-     block * current = myblock->next;
+void DrawBlocks(playerstr * player) {
+     block * current = player->next;
      glClearColor(1.0, 1.0, 1.0, 1.0);
      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -72,11 +72,11 @@ void DrawBlocks(playerstr * myblock) {
      glLoadIdentity();
      gluLookAt(0., 0., 10., 0., 0., 0., 0., 1., 0.);
 //	printf("x %f y %f direction %d\n",myblock->pos[X],myblock->pos[Y],myblock->direction);
-//     drawPlayer(myblock);
+     drawPlayer(player);
      while(current != NULL)
      {
 	  drawBlock(current);
-	  current = current->next;
+	  current = NULL;//current->next;
      }
 } 
 #define XPOS myblock->pos[X]+DIM[myblock->isVertical]
@@ -96,9 +96,19 @@ void drawBlock(block * myblock)
      
      if(ABS(myblock->pos[myblock->isVertical]+DIM[myblock->isVertical]) > 1)
 	  myblock->direction = -(myblock->direction);
-     myblock->pos[myblock->isVertical] += 0.01*myblock->direction;
+     //myblock->pos[myblock->isVertical] += 0.01*myblock->direction;
      glEnd();
      
+}
+
+int detect_hit(playerstr * player)
+{
+	block * myblock = player->next;
+	static int i;
+	if((ABS(player->pos[X] - myblock->pos[X]) < (DIM[X]-DIM[myblock->isVertical ^ 1])) && 
+	   (ABS(player->pos[Y] - myblock->pos[Y]) < DIM[Y]))
+		printf("HIT %d\n",i++);
+
 }
 
 void drawPlayer(playerstr * player)
@@ -106,59 +116,53 @@ void drawPlayer(playerstr * player)
 	player->pos[X] += 0.01*player->movex*player->dirx;
 	player->pos[Y] += 0.01*player->movey*player->diry;
 	glBegin(GL_QUADS);
-	glColor3f(1., 0., 0.); 
+	glColor3f(0., 1., 0.); 
 	glVertex2f(player->pos[X]+DIM[Y],player->pos[Y]+DIM[Y]);
 	glVertex2f(player->pos[X]+DIM[Y],player->pos[Y]-DIM[Y]);
 	glVertex2f(player->pos[X]-DIM[Y],player->pos[Y]-DIM[Y]);
 	glVertex2f(player->pos[X]-DIM[Y],player->pos[Y]+DIM[Y]);
 	glEnd();
+	detect_hit(player);
 }
 
+#define CHECKKEY(INDEX) ((keys[keycodes[INDEX][0]]& keycodes[INDEX][1]) > 0)
+enum keyindex {W,A,S,D};
+int keycodes[4][2];
+
+//CHANGE THESE TO REBIND KEYS
+const XKEYSUMS[4] = {XK_w,XK_a,XK_s,XK_d};
 void handle_keys(playerstr * player)
 {
+	char keys[32];
+	XQueryKeymap(dpy, keys);
+	unsigned int wKey = CHECKKEY(W);
+	unsigned int aKey = CHECKKEY(A);
+	unsigned int sKey = CHECKKEY(S);
+	unsigned int dKey = CHECKKEY(D);
 
-	// w 25 a 38 s 39 d 40
-	if(XPending(dpy)) {/*If there is an event pending*/
-		int pressbool = (xev.type == KeyPress);
-		XNextEvent(dpy, &xev);
-		if(pressbool || xev.type == KeyRelease) { 
-			XKeyEvent xkey = xev.xkey;
-			switch(xkey.keycode)
-			{
-			case 111:
-			case 25: /*W*/
-				player->movey = pressbool;
-				player->diry = 1;
-				break;
-			case 113:
-			case 38: /*A*/
-				player->movex = pressbool;
-				player->dirx = 1;
-				break;
-				
-			case 116:
-			case 39: /*S*/
-				player->movey = pressbool;
-				player->diry = -1;
-				break;
-				
-			case 114:
-			case 40: /*D*/
-				  player->movex = pressbool;
-				  player->dirx = -1;				  
-				  break;
-		    default:
-			 break;
-		    }
-	       }
-	    
-	  }
+	player->movey =  (wKey | sKey);
+	player->diry = wKey - sKey;
+	player->movex =  (aKey | dKey);
+	player->dirx = dKey - aKey;
+}
+
+#define SETKEYCODES(INDEX) {					\
+		keycodes[INDEX][0] = XKeysymToKeycode(dpy, XKEYSUMS[INDEX])/8; \
+		keycodes[INDEX][1] = 0x1 << (XKeysymToKeycode(dpy, XKEYSUMS[INDEX])%8); \
+}
+void init_keycodes(void)
+{
+	SETKEYCODES(W);
+	SETKEYCODES(A);
+	SETKEYCODES(S);
+	SETKEYCODES(D);
 }
  
 int main(int argc, char *argv[]) {
      static block myblock2 = {{.3,.0},NULL,1,1};
      static block myblock = {{.1,.0},&myblock2,0,1};
-     static playerstr player;// = {{.0,.0},.0,&myblock,0,0,0,0};
+     static playerstr player = {{.0,.0},.0,&myblock,0,0,0,0};
+     
      dpy = XOpenDisplay(NULL);
      if(dpy == NULL) {
 	  printf("\n\tcannot connect to X server\n\n");
@@ -191,7 +195,7 @@ int main(int argc, char *argv[]) {
  
      glEnable(GL_DEPTH_TEST); 
      
-
+     init_keycodes();
      while(1) {
 
 	     XGetWindowAttributes(dpy, win, &gwa);
