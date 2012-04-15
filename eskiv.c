@@ -59,6 +59,8 @@ struct _playerstr {
 #define BDIM 0.2
 void drawBlock(block * myblock);
 void drawPlayer(playerstr * myblock);
+void create_block(playerstr * player);
+
 void DrawBlocks(playerstr * player) {
      block * current = player->next;
      glClearColor(1.0, 1.0, 1.0, 1.0);
@@ -72,22 +74,24 @@ void DrawBlocks(playerstr * player) {
      glLoadIdentity();
      gluLookAt(0., 0., 10., 0., 0., 0., 0., 1., 0.);
 //	printf("x %f y %f direction %d\n",myblock->pos[X],myblock->pos[Y],myblock->direction);
+     glBegin(GL_QUADS);
      drawPlayer(player);
      while(current != NULL)
      {
 	  drawBlock(current);
-	  current = NULL;//current->next;
+	  current = current->next;
      }
+     glEnd();
 } 
-#define XPOS(STR) STR->pos[X]+STR->dim[X]
-#define XNEG(STR) STR->pos[X]-STR->dim[X]
-#define YNEG(STR) STR->pos[Y]-STR->dim[Y]
-#define YPOS(STR) STR->pos[Y]+STR->dim[Y]
+#define XPOS myblock->pos[X]+myblock->dim[X]
+#define XNEG myblock->pos[X]-myblock->dim[X]
+#define YNEG myblock->pos[Y]-myblock->dim[Y]
+#define YPOS myblock->pos[Y]+myblock->dim[Y]
 #define ABS(Z) (Z > 0 ? Z : -Z)
 
 void drawBlock(block * myblock)
 {
-     glBegin(GL_QUADS);
+    
      glColor3f(1., 0., 0.); 
      glVertex2f(XNEG,YNEG);
      glVertex2f(XPOS,YNEG);
@@ -96,43 +100,70 @@ void drawBlock(block * myblock)
      
      if(ABS(myblock->pos[myblock->isVertical]+myblock->dim[myblock->isVertical]) > 1)
 	  myblock->direction = -(myblock->direction);
-     //myblock->pos[myblock->isVertical] += 0.01*myblock->direction;
-     glEnd();
-     
+     myblock->pos[myblock->isVertical] += 0.01*myblock->direction;     
 }
 
+#define DISTCALC(INDEX)(ABS((player->pos[INDEX] - current->pos[INDEX])) < current->dim[INDEX]+SDIM)
 int detect_hit(playerstr * player)
 {
-	block * myblock = player->next;
+	block * current = player->next;
 	static int i;
-	if((ABS((player->pos[X] - myblock->pos[X])) < myblock->dim[X]+SDIM) && 
-	   (ABS((player->pos[Y] - myblock->pos[Y])) < myblock->dim[Y]+SDIM))
-	printf("xdist %f ydist %f\n",ABS((player->pos[X] - myblock->pos[X])),ABS(player->pos[Y] - myblock->pos[Y]));
-
+	while(current != NULL)
+	{
+		if(DISTCALC(X) && DISTCALC(Y))
+			/*create_block(player);//*/printf("HIT %d\n",i++);
+		current = current->next;
+	}
 }
 
 void drawPlayer(playerstr * player)
 {
-	player->pos[X] += 0.01*player->movex*player->dirx;
-	player->pos[Y] += 0.01*player->movey*player->diry;
-	glBegin(GL_QUADS);
+	player->pos[X] += 0.02*player->movex*player->dirx;
+	player->pos[Y] += 0.02*player->movey*player->diry;
+//	glBegin(GL_QUADS);
 	glColor3f(0., 1., 0.); 
-	glVertex2f(player->pos[X]+DIM[Y],player->pos[Y]+DIM[Y]);
-	glVertex2f(player->pos[X]+DIM[Y],player->pos[Y]-DIM[Y]);
-	glVertex2f(player->pos[X]-DIM[Y],player->pos[Y]-DIM[Y]);
-	glVertex2f(player->pos[X]-DIM[Y],player->pos[Y]+DIM[Y]);
-	glEnd();
+	glVertex2f(player->pos[X]+SDIM,player->pos[Y]+SDIM);
+	glVertex2f(player->pos[X]+SDIM,player->pos[Y]-SDIM);
+	glVertex2f(player->pos[X]-SDIM,player->pos[Y]-SDIM);
+	glVertex2f(player->pos[X]-SDIM,player->pos[Y]+SDIM);
+//	glEnd();
 	detect_hit(player);
+}
+
+#define ROUND(N)(N >= 0.5)
+#define RANDF10 ((float)rand())/RAND_MAX
+void create_block(playerstr * player)
+{
+	block * tmp = malloc(sizeof(block));
+	tmp->isVertical = ROUND(RANDF10);
+	if(tmp->isVertical)
+	{
+		tmp->dim[Y] = BDIM;
+		tmp->dim[X] = SDIM;
+		tmp->pos[X] = RANDF10;
+		tmp->pos[Y] = RANDF10;
+	}
+	else
+	{
+		tmp->dim[X] = BDIM;
+		tmp->dim[Y] = SDIM;
+		tmp->pos[Y] = RANDF10;
+		tmp->pos[X] = RANDF10;
+	}
+	tmp->direction = -1+2*ROUND(RANDF10);
+	tmp->next =player->next;
+	player->next = tmp;
 }
 
 #define CHECKKEY(INDEX) ((keys[keycodes[INDEX][0]]& keycodes[INDEX][1]) > 0)
 enum keyindex {W,A,S,D};
 int keycodes[4][2];
 
-//CHANGE THESE TO REBIND KEYS
+//CHANGE THESE TO REBIND KEYS UP,LEFT,DOWN,RIGHT
 const XKEYSUMS[4] = {XK_w,XK_a,XK_s,XK_d};
 void handle_keys(playerstr * player)
 {
+
 	char keys[32];
 	XQueryKeymap(dpy, keys);
 	unsigned int wKey = CHECKKEY(W);
@@ -159,10 +190,11 @@ void init_keycodes(void)
 }
  
 int main(int argc, char *argv[]) {
-	static block myblock2 = {{.3,.0},{0.,0.},NULL,1,1};
-	static block myblock = {{.1,.0},{BDIM,SDIM},&myblock2,0,1};
-     static playerstr player = {{.0,.0},.0,&myblock,0,0,0,0};
-     
+//	static block myblock2 = {{.3,.0},{SDIM,BDIM},NULL,1,1};
+//	static block myblock = {{.1,.0},{BDIM,SDIM},&myblock2,0,1};
+     static playerstr player = {{.0,.0},.0,NULL,0,0,0,0};
+     srand(time(NULL));
+     create_block(&player);
      dpy = XOpenDisplay(NULL);
      if(dpy == NULL) {
 	  printf("\n\tcannot connect to X server\n\n");
