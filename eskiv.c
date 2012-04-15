@@ -37,6 +37,7 @@ XEvent                  xev;
 
 struct _block {
 	float pos[2];
+	float dim[2];
 	struct _block * next;
 	unsigned int isVertical:1;
 	int direction:2;
@@ -54,9 +55,8 @@ struct _playerstr {
 
 #define X 0
 #define Y 1
-#define XDIM 0.1
-#define YDIM 0.2
-const float DIM[2] ={YDIM,XDIM};
+#define SDIM 0.1
+#define BDIM 0.2
 void drawBlock(block * myblock);
 void drawPlayer(playerstr * myblock);
 void DrawBlocks(playerstr * player) {
@@ -79,10 +79,10 @@ void DrawBlocks(playerstr * player) {
 	  current = NULL;//current->next;
      }
 } 
-#define XPOS myblock->pos[X]+DIM[myblock->isVertical]
-#define XNEG myblock->pos[X]-DIM[myblock->isVertical]
-#define YNEG myblock->pos[Y]-DIM[myblock->isVertical ^ 1]
-#define YPOS myblock->pos[Y]+DIM[myblock->isVertical ^ 1]
+#define XPOS(STR) STR->pos[X]+STR->dim[X]
+#define XNEG(STR) STR->pos[X]-STR->dim[X]
+#define YNEG(STR) STR->pos[Y]-STR->dim[Y]
+#define YPOS(STR) STR->pos[Y]+STR->dim[Y]
 #define ABS(Z) (Z > 0 ? Z : -Z)
 
 void drawBlock(block * myblock)
@@ -94,7 +94,7 @@ void drawBlock(block * myblock)
      glVertex2f(XPOS,YPOS);
      glVertex2f(XNEG,YPOS);
      
-     if(ABS(myblock->pos[myblock->isVertical]+DIM[myblock->isVertical]) > 1)
+     if(ABS(myblock->pos[myblock->isVertical]+myblock->dim[myblock->isVertical]) > 1)
 	  myblock->direction = -(myblock->direction);
      //myblock->pos[myblock->isVertical] += 0.01*myblock->direction;
      glEnd();
@@ -105,9 +105,9 @@ int detect_hit(playerstr * player)
 {
 	block * myblock = player->next;
 	static int i;
-	if((ABS(player->pos[X] - myblock->pos[X]) < (DIM[X]-DIM[myblock->isVertical ^ 1])) && 
-	   (ABS(player->pos[Y] - myblock->pos[Y]) < DIM[Y]))
-		printf("HIT %d\n",i++);
+	if((ABS((player->pos[X] - myblock->pos[X])) < myblock->dim[X]+SDIM) && 
+	   (ABS((player->pos[Y] - myblock->pos[Y])) < myblock->dim[Y]+SDIM))
+	printf("xdist %f ydist %f\n",ABS((player->pos[X] - myblock->pos[X])),ABS(player->pos[Y] - myblock->pos[Y]));
 
 }
 
@@ -159,8 +159,8 @@ void init_keycodes(void)
 }
  
 int main(int argc, char *argv[]) {
-     static block myblock2 = {{.3,.0},NULL,1,1};
-     static block myblock = {{.1,.0},&myblock2,0,1};
+	static block myblock2 = {{.3,.0},{0.,0.},NULL,1,1};
+	static block myblock = {{.1,.0},{BDIM,SDIM},&myblock2,0,1};
      static playerstr player = {{.0,.0},.0,&myblock,0,0,0,0};
      
      dpy = XOpenDisplay(NULL);
