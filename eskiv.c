@@ -216,8 +216,8 @@ void handle_keys(playerstr * player)
 	unsigned int aKey = CHECKKEY(A);
 	unsigned int sKey = CHECKKEY(S);
 	unsigned int dKey = CHECKKEY(D);
-	player->diry = (wKey - sKey)*(wKey | sKey);
-	player->dirx = (dKey - aKey)*(aKey | dKey);
+	player->diry = (wKey - sKey);
+	player->dirx = (dKey - aKey);
 }
 
 #define SETKEYCODES(INDEX) {					\
