@@ -60,6 +60,23 @@ int score = 0;
 #define Y 1
 #define SDIM 0.05
 #define BDIM 0.1
+#define XPOS myblock->pos[X]+myblock->dim[X]
+#define XNEG myblock->pos[X]-myblock->dim[X]
+#define YNEG myblock->pos[Y]-myblock->dim[Y]
+#define YPOS myblock->pos[Y]+myblock->dim[Y]
+#define ABS(Z) (Z > 0 ? Z : -Z)
+#define ROUND(N)(N >= 0.5)
+#define RANDF10 ((float)rand())/RAND_MAX
+#define CALCPOS(INDEX) (current->pos[INDEX] =-(1-currentsize)+(2-currentsize*2)*RANDF10)
+#define PSPEED 0.04
+#define DISTCALC(INDEX)(ABS((player->pos[INDEX] - current->pos[INDEX])) < current->dim[INDEX]+SDIM)
+#define SETKEYCODES(INDEX) {					\
+		keycodes[INDEX][0] = XKeysymToKeycode(dpy, XKEYSUMS[INDEX])/8; \
+		keycodes[INDEX][1] = 0x1 << (XKeysymToKeycode(dpy, XKEYSUMS[INDEX])%8); \
+}
+#define CHECKKEY(INDEX) ((keys[keycodes[INDEX][0]]& keycodes[INDEX][1]) > 0)
+
+
 void drawBlock(block * myblock);
 void drawPlayer(playerstr * myblock);
 block * create_block(playerstr * player);
@@ -70,20 +87,22 @@ void detect_hit(playerstr * player);
 
 void DrawBlocks(playerstr * player) {
      block * current = player->next;
-     glClearColor(1.0, 1.0, 1.0, 1.0);
+     glClearColor(0.0, 0.0, 0.0, 1.0);
      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
      glMatrixMode(GL_PROJECTION);
      glLoadIdentity();
      glOrtho(-1., 1., -1., 1., 1., 20.);
 
+
      glMatrixMode(GL_MODELVIEW);
      glLoadIdentity();
      gluLookAt(0., 0., 10., 0., 0., 0., 0., 1., 0.);
      glBegin(GL_QUADS);
      drawPlayer(player);
+     glDisable(GL_LIGHTING);
      draw_point(point);
-     glColor3f(1., 0., 0.); 
+     //    glColor4f(1., 0., 0.,0.5); 
      while(current != NULL)
      {
 	  drawBlock(current);
@@ -92,11 +111,6 @@ void DrawBlocks(playerstr * player) {
      glEnd();
      detect_hit(player);
 } 
-#define XPOS myblock->pos[X]+myblock->dim[X]
-#define XNEG myblock->pos[X]-myblock->dim[X]
-#define YNEG myblock->pos[Y]-myblock->dim[Y]
-#define YPOS myblock->pos[Y]+myblock->dim[Y]
-#define ABS(Z) (Z > 0 ? Z : -Z)
 
 void update_title(void)
 {
@@ -107,25 +121,25 @@ void update_title(void)
 
 void draw_point(block * myblock)
 {
-     glColor3f(0., 0., 1.); 
-     glVertex2f(XNEG,YNEG);
-     glVertex2f(XPOS,YNEG);
-     glVertex2f(XPOS,YPOS);
-     glVertex2f(XNEG,YPOS);
+//	glColor4f(0., 0., 1.,0.1); 
+	glVertex2f(XNEG,YNEG);
+	glVertex2f(XPOS,YNEG);
+	glVertex2f(XPOS,YPOS);
+	glVertex2f(XNEG,YPOS);
 }
 
 void drawBlock(block * myblock)
 {
     
+	glNormal3f(myblock->pos[X],myblock->pos[Y],0.8);
+	glVertex2f(XNEG,YNEG);
+	glVertex2f(XPOS,YNEG);
+	glVertex2f(XPOS,YPOS);
+	glVertex2f(XNEG,YPOS);
      
-       glVertex2f(XNEG,YNEG);
-       glVertex2f(XPOS,YNEG);
-       glVertex2f(XPOS,YPOS);
-       glVertex2f(XNEG,YPOS);
-     
-       if(ABS(myblock->pos[myblock->isVertical])+myblock->dim[myblock->isVertical] > 1)
-	  myblock->direction = -(myblock->direction);
-     myblock->pos[myblock->isVertical] += 0.01*myblock->direction;     
+	if(ABS(myblock->pos[myblock->isVertical])+myblock->dim[myblock->isVertical] > 1)
+		myblock->direction = -(myblock->direction);
+	myblock->pos[myblock->isVertical] += 0.01*myblock->direction;     
 }
 
 void add_point(playerstr * player)
@@ -136,7 +150,7 @@ void add_point(playerstr * player)
 	player->next = create_block(player);//*/printf("HIT %d\n",i++);
 }
 
-#define DISTCALC(INDEX)(ABS((player->pos[INDEX] - current->pos[INDEX])) < current->dim[INDEX]+SDIM)
+
 void detect_hit(playerstr * player)
 {
 	block * current = point;
@@ -154,7 +168,7 @@ void detect_hit(playerstr * player)
 		current = current->next;
 	}
 }
-#define PSPEED 0.12
+
 void drawPlayer(playerstr * player)
 {
 	player->pos[X] += PSPEED*player->dirx;
@@ -162,7 +176,8 @@ void drawPlayer(playerstr * player)
 	player->pos[X] -= PSPEED*(ABS(player->pos[X])+SDIM > 1)*player->dirx;
 	player->pos[Y] -= PSPEED*(ABS(player->pos[Y])+SDIM > 1)*player->diry;
 //	glBegin(GL_QUADS);
-	glColor3f(0., 1., 0.); 
+//	glColor3f(0., 1., 0.); 
+	glNormal3f(player->pos[X],player->pos[Y],0.8);
 	glVertex2f(player->pos[X]+SDIM,player->pos[Y]+SDIM);
 	glVertex2f(player->pos[X]+SDIM,player->pos[Y]-SDIM);
 	glVertex2f(player->pos[X]-SDIM,player->pos[Y]-SDIM);
@@ -171,9 +186,6 @@ void drawPlayer(playerstr * player)
 	
 }
 
-#define ROUND(N)(N >= 0.5)
-#define RANDF10 ((float)rand())/RAND_MAX
-#define CALCPOS(INDEX) (current->pos[INDEX] =-(1-currentsize)+(2-currentsize*2)*RANDF10)
 block * create_block(playerstr * player)
 {
 	block * current = malloc(sizeof(block));
@@ -201,7 +213,7 @@ block * create_block(playerstr * player)
      	return current;
 }
 
-#define CHECKKEY(INDEX) ((keys[keycodes[INDEX][0]]& keycodes[INDEX][1]) > 0)
+
 enum keyindex {W,A,S,D};
 int keycodes[4][2];
 
@@ -220,10 +232,7 @@ void handle_keys(playerstr * player)
 	player->dirx = (dKey - aKey);
 }
 
-#define SETKEYCODES(INDEX) {					\
-		keycodes[INDEX][0] = XKeysymToKeycode(dpy, XKEYSUMS[INDEX])/8; \
-		keycodes[INDEX][1] = 0x1 << (XKeysymToKeycode(dpy, XKEYSUMS[INDEX])%8); \
-}
+
 void init_keycodes(void)
 {
 	SETKEYCODES(W);
@@ -239,6 +248,9 @@ void reset_point(void)
 	if(point != NULL)
 		free(point);
 	point = create_block(NULL);
+	GLfloat light_position[] = {point->pos[X],point->pos[Y],1,1};
+	glNormal3f(point->pos[X],point->pos[Y],10);
+	glLightfv(GL_LIGHT0, GL_POSITION,light_position);
 	point->dim[X] = point->dim[Y] = SDIM;
 }
 
@@ -301,47 +313,50 @@ void draw_frame()
 	glVertex2f(1.,1.); 
 	glEnd();
 }
+
  
 int main(int argc, char *argv[]) {
 //	static block myblock2 = {{.3,.0},{SDIM,BDIM},NULL,1,1};
 //	static block myblock = {{.1,.0},{BDIM,SDIM},&myblock2,0,1};
      static playerstr player = {{.0,.0},.0,NULL,0,0};
      srand(time(NULL));
-
-     //player.next = create_block(NULL);
      title = malloc(sizeof(char)*200);
+
      dpy = XOpenDisplay(NULL);
      if(dpy == NULL) {
 	  printf("\n\tcannot connect to X server\n\n");
-	  exit(0); }
-        
+	  exit(0); }  
      root = DefaultRootWindow(dpy);
-	
-     vi = glXChooseVisual(dpy, 0, att);
-	
+     vi = glXChooseVisual(dpy, 0, att);	
      if(vi == NULL) {
 	  printf("\n\tno appropriate visual found\n\n");
 	  exit(0); } 
      else {
 	  printf("\n\tvisual %p selected\n", (void *)vi->visualid); 
      }/* %p creates hexadecimal output like in glxinfo */
-
-
      cmap = XCreateColormap(dpy, root, vi->visual, AllocNone);
-
      swa.colormap = cmap;
      swa.event_mask = ExposureMask | KeyPressMask;
- 
      win = XCreateWindow(dpy, root, 0, 0, 600, 600, 0, vi->depth, InputOutput, vi->visual, CWColormap | CWEventMask, &swa);
-
-     XMapWindow(dpy, win);
-     //XStoreName(dpy, win, "VERY SIMPLE APPLICATION");
-     update_title();
+     XMapWindow(dpy, win);   
      glc = glXCreateContext(dpy, vi, NULL, GL_TRUE);
      glXMakeCurrent(dpy, win, glc);
  
-     glEnable(GL_DEPTH_TEST); 
+     GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+     GLfloat mat_shininess[] = { 50.0 };
+     GLfloat light_position[] = { 1.0, 1.0, 1.0, 1.0 };
+     glClearColor (0.0, 0.0, 0.0, 0.0);
+     glShadeModel (GL_SMOOTH);
+
+     glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
+     glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
+     glLightfv(GL_LIGHT0, GL_POSITION, light_position);
      
+     glEnable(GL_LIGHTING);
+     glEnable(GL_LIGHT0);
+     glEnable(GL_DEPTH_TEST);
+
+     update_title();
      init_keycodes();
      reset_point();
      while(1) {
@@ -352,7 +367,7 @@ int main(int argc, char *argv[]) {
 	     else
 		     glViewport(0, 0, gwa.height,gwa.height);
 	     DrawBlocks(&player); 
-	     draw_frame();
+	     // draw_frame();
 	     glXSwapBuffers(dpy, win);
 	     handle_keys(&player);
 	} /* this closes while(1) { */
