@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=
+CFLAGS= -g
 LIBS = -lX11 -lGL -lGLU -lglut
 
 all:eskiv

@@ -23,7 +23,7 @@
 #include<GL/gl.h>
 #include<GL/glx.h>
 #include<GL/glu.h>
-
+#include<math.h>
 
 struct _block {
 	float pos[2];
@@ -56,10 +56,19 @@ block * point;
 char * title;
 int topscore =0;
 int score = 0;
+float brightness = 0.0;
+playerstr * player;
+enum keyindex {W,A,S,D};
+int keycodes[4][2];
+
+//CHANGE THESE TO REBIND KEYS UP,LEFT,DOWN,RIGHT
+const XKEYSUMS[4] = {XK_w,XK_a,XK_s,XK_d};
+
 #define X 0
 #define Y 1
 #define SDIM 0.05
 #define BDIM 0.1
+#define PSPEED 0.03
 #define XPOS myblock->pos[X]+myblock->dim[X]
 #define XNEG myblock->pos[X]-myblock->dim[X]
 #define YNEG myblock->pos[Y]-myblock->dim[Y]
@@ -68,88 +77,187 @@ int score = 0;
 #define ROUND(N)(N >= 0.5)
 #define RANDF10 ((float)rand())/RAND_MAX
 #define CALCPOS(INDEX) (current->pos[INDEX] =-(1-currentsize)+(2-currentsize*2)*RANDF10)
-#define PSPEED 0.05
 #define DISTCALC(INDEX)(ABS((player->pos[INDEX] - current->pos[INDEX])) < current->dim[INDEX]+SDIM)
-#define SETKEYCODES(INDEX) {					\
+
+#define SETKEYCODES(INDEX) {						\
 		keycodes[INDEX][0] = XKeysymToKeycode(dpy, XKEYSUMS[INDEX])/8; \
 		keycodes[INDEX][1] = 0x1 << (XKeysymToKeycode(dpy, XKEYSUMS[INDEX])%8); \
-}
+	}
 #define CHECKKEY(INDEX) ((keys[keycodes[INDEX][0]]& keycodes[INDEX][1]) > 0)
 
 
-void drawBlock(block * myblock);
+void render_block(block * myblock);
 void drawPlayer(playerstr * myblock);
 block * create_block(playerstr * player);
 void draw_point(block * myblock);
-void reset_point(void);
+void update_point(void);
 void reset_game(playerstr * player);
 void detect_hit(playerstr * player);
-
-void DrawBlocks(playerstr * player) {
-     block * current = player->next;
-     glClearColor(0.0, 0.0, 0.0, 1.0);
-     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-     glMatrixMode(GL_PROJECTION);
-     glLoadIdentity();
-     glOrtho(-1., 1., -1., 1., 1., 20.);
+void draw_frame();
+float dist(float x1, float y1);
 
 
-     glMatrixMode(GL_MODELVIEW);
-     glLoadIdentity();
-     gluLookAt(0., 0., 10., 0., 0., 0., 0., 1., 0.);
-     glBegin(GL_QUADS);
-     drawPlayer(player);
-     glDisable(GL_LIGHTING);
-     draw_point(point);
-     //    glColor4f(1., 0., 0.,0.5); 
-     while(current != NULL)
-     {
-	  drawBlock(current);
-	  current = current->next;
-     }
-     glEnd();
-     detect_hit(player);
-} 
-
-void update_title(void)
+//Render start---------------------------
+void render_point(block * myblock)
 {
-	sprintf(title,"Eskiv, Score %d Highscore %d",score,topscore);
-	XStoreName(dpy, win, title);
-
-}
-
-void draw_point(block * myblock)
-{
-//	glColor4f(0., 0., 1.,0.1); 
+	glColor4f(0., 0., 1.,1); 
+	glNormal3f(myblock->pos[X],myblock->pos[Y],1);
 	glVertex2f(XNEG,YNEG);
 	glVertex2f(XPOS,YNEG);
 	glVertex2f(XPOS,YPOS);
 	glVertex2f(XNEG,YPOS);
 }
 
-void drawBlock(block * myblock)
+void render_block(block * myblock)
 {
-    
 	glNormal3f(myblock->pos[X],myblock->pos[Y],0.8);
 	glVertex2f(XNEG,YNEG);
 	glVertex2f(XPOS,YNEG);
 	glVertex2f(XPOS,YPOS);
-	glVertex2f(XNEG,YPOS);
-     
+	glVertex2f(XNEG,YPOS);     
+}
+
+#define POINTXY	glVertex2f(point->pos[X],point->pos[Y])
+void render_lines(block * argmyblock)
+{
+	glColor4f(0., 1., 0.,0.6);
+	block * myblock = argmyblock;
+	glLineWidth(20); 
+//	glBegin(GL_LINES); 
+	float dist[4];
+	int i = 0;
+	while(myblock != NULL)
+	{
+		i = 0;		
+		//distance[i++] = dist(XNEG,YNEG);
+		//distance[i++] = dist(XPOS,YNEG);
+		//distance[i++] = dist(XPOS,YPOS);
+		//distance[i++] = dist(XNEG,YPOS);     
+		glVertex2f(XNEG,YNEG);
+		POINTXY;
+		POINTXY;
+		glVertex2f(XPOS,YPOS);
+		glVertex2f(XPOS,YNEG);
+		POINTXY;
+		glVertex2f(XNEG,YPOS);     
+		POINTXY;
+		myblock = myblock->next;
+	}
+	//glEnd();
+}
+
+float dist(float x1, float y1)
+{
+	float x2 = point->pos[X];
+	float y2 = point->pos[Y];
+	float xtmp = ABS((x1-x2));
+	xtmp *= xtmp;
+	float ytmp = ABS((y1-y2));
+	ytmp *= ytmp;
+	return (sqrt((ytmp+xtmp)));
+}
+
+
+void render_player()
+{
+	glColor4f(0., 0., 1.,1); 
+	glNormal3f(player->pos[X],player->pos[Y],0.8);
+	glVertex2f(player->pos[X]+SDIM,player->pos[Y]+SDIM);
+	glVertex2f(player->pos[X]+SDIM,player->pos[Y]-SDIM);
+	glVertex2f(player->pos[X]-SDIM,player->pos[Y]-SDIM);
+	glVertex2f(player->pos[X]-SDIM,player->pos[Y]+SDIM);	
+}
+
+void render_scene() {
+	block * current = player->next;
+	glClearColor(0.1, 0.1, 0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(-1., 1., -1., 1., -1., 10.);
+	
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	gluLookAt(0., 0., 10., 0., 0., 0., 0., 1., 0.);
+	glBegin(GL_QUADS);
+	
+	
+	render_point(point);
+	render_lines(player->next);
+	glColor4f(1., 0., 0.,0.5); 
+	while(current != NULL)
+	{
+		render_block(current);
+		current = current->next;
+	}
+	render_player();
+	glEnd();   
+} 
+
+//	Render end---------------------------
+//Update start---------------------------
+void update_point(void)
+{
+	int tmp;
+	if(point != NULL) {
+		tmp = point->direction;
+		free(point);
+	}
+	point = create_block(NULL);
+	point->dim[X] = point->dim[Y] = SDIM;
+	point->direction = tmp;
+	GLfloat light_position[] = {point->pos[X],point->pos[Y],1,0.8};
+	glNormal3f(point->pos[X],point->pos[Y],10);
+	glLightfv(GL_LIGHT0, GL_POSITION,light_position);
+	printf("B %f\n",brightness);
+}
+
+void update_block(block * myblock)
+{
 	if(ABS(myblock->pos[myblock->isVertical])+myblock->dim[myblock->isVertical] > 1)
 		myblock->direction = -(myblock->direction);
 	myblock->pos[myblock->isVertical] += 0.01*myblock->direction;     
 }
 
-void add_point(playerstr * player)
+void update_player()
 {
-	reset_point();
-	score += 5;
-	update_title();
-	player->next = create_block(player);//*/printf("HIT %d\n",i++);
+	player->pos[X] += PSPEED*player->dirx;
+	player->pos[Y] += PSPEED*player->diry;
+	player->pos[X] -= PSPEED*(ABS(player->pos[X])+SDIM > 1)*player->dirx;
+	player->pos[Y] -= PSPEED*(ABS(player->pos[Y])+SDIM > 1)*player->diry;
 }
 
+
+
+void update_scene()
+{
+	block * current = player->next;
+	
+	update_player();
+	while(current != NULL)
+	{
+	  update_block(current);
+	  current = current->next;
+	}
+	detect_hit(player);
+}
+
+void update_title(void)
+{
+	sprintf(title,"Eskiv, Score %d Highscore %d",score,topscore);
+	XStoreName(dpy, win, title);
+}
+
+//Update end---------------------------
+
+void add_point(playerstr * player)
+{
+	update_point();
+	score += 5;
+	update_title();
+	player->next = create_block(player);
+}
 
 void detect_hit(playerstr * player)
 {
@@ -168,27 +276,6 @@ void detect_hit(playerstr * player)
 		current = current->next;
 	}
 }
-<<<<<<< HEAD
-#define PSPEED 0.05
-=======
-
->>>>>>> d0cd08ebe158ae5c187535e856a8e186fdff8b86
-void drawPlayer(playerstr * player)
-{
-	player->pos[X] += PSPEED*player->dirx;
-	player->pos[Y] += PSPEED*player->diry;
-	player->pos[X] -= PSPEED*(ABS(player->pos[X])+SDIM > 1)*player->dirx;
-	player->pos[Y] -= PSPEED*(ABS(player->pos[Y])+SDIM > 1)*player->diry;
-//	glBegin(GL_QUADS);
-//	glColor3f(0., 1., 0.); 
-	glNormal3f(player->pos[X],player->pos[Y],0.8);
-	glVertex2f(player->pos[X]+SDIM,player->pos[Y]+SDIM);
-	glVertex2f(player->pos[X]+SDIM,player->pos[Y]-SDIM);
-	glVertex2f(player->pos[X]-SDIM,player->pos[Y]-SDIM);
-	glVertex2f(player->pos[X]-SDIM,player->pos[Y]+SDIM);
-//	glEnd();
-	
-}
 
 block * create_block(playerstr * player)
 {
@@ -199,7 +286,6 @@ block * create_block(playerstr * player)
 	current->dim[current->isVertical ^ 1] = SDIM;
 	currentsize = current->dim[X];
 	CALCPOS(X);
-//	printf("%f\n",current->pos[X]);
 	currentsize = current->dim[Y];
 	CALCPOS(Y);
 
@@ -217,15 +303,8 @@ block * create_block(playerstr * player)
      	return current;
 }
 
-
-enum keyindex {W,A,S,D};
-int keycodes[4][2];
-
-//CHANGE THESE TO REBIND KEYS UP,LEFT,DOWN,RIGHT
-const XKEYSUMS[4] = {XK_w,XK_a,XK_s,XK_d};
 void handle_keys(playerstr * player)
 {
-
 	char keys[32];
 	XQueryKeymap(dpy, keys);
 	unsigned int wKey = CHECKKEY(W);
@@ -246,20 +325,7 @@ void init_keycodes(void)
 }
 
 
-
-void reset_point(void)
-{
-	if(point != NULL)
-		free(point);
-	point = create_block(NULL);
-	GLfloat light_position[] = {point->pos[X],point->pos[Y],1,1};
-	glNormal3f(point->pos[X],point->pos[Y],10);
-	glLightfv(GL_LIGHT0, GL_POSITION,light_position);
-	point->dim[X] = point->dim[Y] = SDIM;
-}
-
-
-void reset_player(playerstr * player)
+__inline__ void reset_player(playerstr * player)
 {
 	player->pos[X] = player->pos[Y] = 0;
 }
@@ -293,14 +359,21 @@ void reset_game(playerstr * player)
 	score = 0;
 	reset_player(player);
 	free_blocks(player);
-	reset_point();
+	update_point();
 	update_title();
 	//player->next = create_block(NULL);
 }
 
 void draw_frame()
 {
-	glColor3f(0., 0., 0.); 
+	glColor3f(0., 1., 0.); 
+	glNormal3f(-point->pos[X],-point->pos[Y],0);
+	glVertex2f(1.,1.);
+	glVertex2f(1.,-1);
+	glVertex2f(-1,-1);
+	glVertex2f(-1,1);
+
+	return;
 	glLineWidth(20); 
 	glBegin(GL_LINES); 
 //Bottom border
@@ -322,14 +395,15 @@ void draw_frame()
 int main(int argc, char *argv[]) {
 //	static block myblock2 = {{.3,.0},{SDIM,BDIM},NULL,1,1};
 //	static block myblock = {{.1,.0},{BDIM,SDIM},&myblock2,0,1};
-     static playerstr player = {{.0,.0},.0,NULL,0,0};
-     srand(time(NULL));
-     title = malloc(sizeof(char)*200);
+	player = calloc(1,sizeof(playerstr));//{{.0,.0},.0,NULL,0,0};
+	
+	srand(time(NULL));
+	title = malloc(sizeof(char)*200);
 
-     dpy = XOpenDisplay(NULL);
-     if(dpy == NULL) {
-	  printf("\n\tcannot connect to X server\n\n");
-	  exit(0); }  
+	dpy = XOpenDisplay(NULL);
+	if(dpy == NULL) {
+		printf("\n\tcannot connect to X server\n\n");
+		exit(0); }  
      root = DefaultRootWindow(dpy);
      vi = glXChooseVisual(dpy, 0, att);	
      if(vi == NULL) {
@@ -354,15 +428,20 @@ int main(int argc, char *argv[]) {
 
      glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
      glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
-     glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+     //glLightfv(GL_LIGHT0, GL_POSITION, light_position);
      
-     glEnable(GL_LIGHTING);
-     glEnable(GL_LIGHT0);
-     glEnable(GL_DEPTH_TEST);
-
+     // glEnable(GL_LIGHTING);
+     //glEnable(GL_LIGHT0);
+     //  glEnable(GL_DEPTH_TEST);
+     //glEnable(GL_COLOR_MATERIAL);
      update_title();
      init_keycodes();
-     reset_point();
+     update_point();
+     reset_player(player);
+     point->direction = 1;
+     glEnable (GL_BLEND);
+     glBlendFunc (GL_SRC_ALPHA, GL_ONE);
+     glShadeModel (GL_FLAT);
      while(1) {
 
 	     XGetWindowAttributes(dpy, win, &gwa);
@@ -370,18 +449,9 @@ int main(int argc, char *argv[]) {
 		     glViewport(0, 0, gwa.width,gwa.width);
 	     else
 		     glViewport(0, 0, gwa.height,gwa.height);
-	     DrawBlocks(&player); 
-	     // draw_frame();
+	     render_scene(); 
 	     glXSwapBuffers(dpy, win);
-	     handle_keys(&player);
+	     update_scene();
+	     handle_keys(player);
 	} /* this closes while(1) { */
 } /* this is the } which closes int main(int argc, char *argv[]) { */
-
-
-
-
-
-
-
-
-
