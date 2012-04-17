@@ -154,7 +154,7 @@ void detect_hit(playerstr * player)
 		current = current->next;
 	}
 }
-#define PSPEED 0.12
+#define PSPEED 0.05
 void drawPlayer(playerstr * player)
 {
 	player->pos[X] += PSPEED*player->dirx;
