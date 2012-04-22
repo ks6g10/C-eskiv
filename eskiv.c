@@ -24,6 +24,8 @@
 #include<GL/glx.h>
 #include<GL/glu.h>
 #include<math.h>
+#include<time.h>
+#include"light.h"
 
 struct _block {
 	float pos[2];
@@ -160,12 +162,24 @@ float dist(float x1, float y1)
 
 void render_player()
 {
+	static int count;
+	if(player->dirx != 0 || player->diry != 0 || count == 0)
+	{
 	glColor4f(0., 0., 1.,1); 
 	glNormal3f(player->pos[X],player->pos[Y],0.8);
 	glVertex2f(player->pos[X]+SDIM,player->pos[Y]+SDIM);
 	glVertex2f(player->pos[X]+SDIM,player->pos[Y]-SDIM);
 	glVertex2f(player->pos[X]-SDIM,player->pos[Y]-SDIM);
-	glVertex2f(player->pos[X]-SDIM,player->pos[Y]+SDIM);	
+	glVertex2f(player->pos[X]-SDIM,player->pos[Y]+SDIM);
+	count++;
+	}
+	else
+	{
+		glPopMatrix();
+		count = 0;
+	}
+	glPushMatrix();
+	
 }
 
 void render_scene() {
@@ -175,14 +189,11 @@ void render_scene() {
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	glOrtho(-1., 1., -1., 1., -1., 10.);
-	
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+	glOrtho(-1., 1., -1., 1., -1., 10.);       
 	gluLookAt(0., 0., 10., 0., 0., 0., 0., 1., 0.);
 	glBegin(GL_QUADS);
-	
-	
+	render_player();
+	glLoadIdentity();
 	render_point(point);
 	render_lines(player->next);
 	glColor4f(1., 0., 0.,0.5); 
@@ -191,7 +202,7 @@ void render_scene() {
 		render_block(current);
 		current = current->next;
 	}
-	render_player();
+
 	glEnd();   
 } 
 
@@ -442,6 +453,13 @@ int main(int argc, char *argv[]) {
      glEnable (GL_BLEND);
      glBlendFunc (GL_SRC_ALPHA, GL_ONE);
      glShadeModel (GL_FLAT);
+     
+     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
+
+     int fps = 0;
+     clock_t start, end;
+     double elapsed;
+     start = clock();
      while(1) {
 
 	     XGetWindowAttributes(dpy, win, &gwa);
@@ -453,5 +471,14 @@ int main(int argc, char *argv[]) {
 	     glXSwapBuffers(dpy, win);
 	     update_scene();
 	     handle_keys(player);
+	     end = clock();
+	     elapsed = ((double) (end - start)) / CLOCKS_PER_SEC;
+	     fps++;
+	     if(elapsed > 0.01)
+	     {
+		     printf("FPS %d\n",fps);
+		     fps = 0;
+		     start = clock();
+	     }
 	} /* this closes while(1) { */
 } /* this is the } which closes int main(int argc, char *argv[]) { */
